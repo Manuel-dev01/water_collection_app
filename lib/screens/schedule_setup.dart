@@ -16,6 +16,8 @@ class _ScheduleSetupScreenState extends State<ScheduleSetupScreen> {
   final List<String> _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   
   TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  // List to store multiple reminder times
+  List<TimeOfDay> _selectedTimes = [const TimeOfDay(hour: 9, minute: 0)];
   int _currentTab = 0;
 
   @override
@@ -26,16 +28,28 @@ class _ScheduleSetupScreenState extends State<ScheduleSetupScreen> {
     super.dispose();
   }
 
-  Future<void> _selectTime(BuildContext context) async {
+  Future<void> _selectTime(BuildContext context, int index) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime,
+      initialTime: _selectedTimes[index],
     );
-    if (picked != null && picked != _selectedTime) {
+    if (picked != null && picked != _selectedTimes[index]) {
       setState(() {
-        _selectedTime = picked;
+        _selectedTimes[index] = picked;
       });
     }
+  }
+
+  void _addReminder() {
+    setState(() {
+      _selectedTimes.add(const TimeOfDay(hour: 9, minute: 0));
+    });
+  }
+
+  void _removeReminder(int index) {
+    setState(() {
+      _selectedTimes.removeAt(index);
+    });
   }
 
   String _formatTime(TimeOfDay time) {
@@ -206,7 +220,7 @@ class _ScheduleSetupScreenState extends State<ScheduleSetupScreen> {
                               ),
                             ),
                             TextButton.icon(
-                              onPressed: () {},
+                              onPressed: _addReminder,
                               icon: const Icon(
                                 Icons.add,
                                 size: 18,
@@ -227,44 +241,65 @@ class _ScheduleSetupScreenState extends State<ScheduleSetupScreen> {
                         ),
                         const SizedBox(height: 12),
                         
-                        // Time Picker
-                        GestureDetector(
-                          onTap: () => _selectTime(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                        // Time Pickers List
+                        ..._selectedTimes.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final time = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
                             child: Row(
                               children: [
-                                Icon(
-                                  Icons.access_time,
-                                  color: Colors.grey[600],
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    _formatTime(_selectedTime),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      color: Color(0xFF333333),
+                                  child: GestureDetector(
+                                    onTap: () => _selectTime(context, index),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 14,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF5F5F5),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.access_time,
+                                            color: Colors.grey[600],
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              _formatTime(time),
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                color: Color(0xFF333333),
+                                              ),
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.keyboard_arrow_down,
+                                            color: Colors.grey[600],
+                                            size: 20,
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: Colors.grey[600],
-                                  size: 20,
-                                ),
+                                if (_selectedTimes.length > 1) ...[
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.close, color: Colors.grey),
+                                    onPressed: () => _removeReminder(index),
+                                    tooltip: 'Remove reminder',
+                                  ),
+                                ],
                               ],
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                         
                         const SizedBox(height: 32),
                         
