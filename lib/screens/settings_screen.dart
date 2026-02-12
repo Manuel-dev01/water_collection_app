@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../main.dart'; // Import to access global isDarkMode
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -10,15 +11,18 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   // State for switches
   bool _soundAlerts = true;
-  bool _darkMode = false;
+  // bool _darkMode = false; // Removed local state
 
   @override
   Widget build(BuildContext context) {
-    // Custom blue color from the design (approximate)
-    const Color headerBlue = Color(0xFFADD8E6); // Light Blue
+    // Use Theme colors
+    final backgroundColor = Theme.of(context).appBarTheme.backgroundColor ?? const Color(0xFFADD8E6);
+    final containerColor = Theme.of(context).scaffoldBackgroundColor;
+    final textColor = Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black;
+    final cardColor = Theme.of(context).cardColor;
 
     return Scaffold(
-      backgroundColor: headerBlue, // Background for the top part
+      backgroundColor: backgroundColor, // Background for the top part
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -30,10 +34,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Settings',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).appBarTheme.foregroundColor ?? Colors.white,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
@@ -55,9 +59,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // 2. White Container with Settings Content
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: containerColor,
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(20),
                     topRight: Radius.circular(20),
                   ),
@@ -75,21 +79,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Notifications',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.black54,
+                                color: Colors.grey,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             const SizedBox(height: 10),
                             _buildSettingsCard(
+                              color: cardColor,
+                              borderColor: Colors.grey.withOpacity(0.2),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Sound alerts',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.black87,
+                                      color: textColor,
                                     ),
                                   ),
                                     Switch(
@@ -100,7 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       });
                                     },
                                     activeThumbColor: Colors.white,
-                                    activeTrackColor: headerBlue,
+                                    activeTrackColor: backgroundColor,
                                   ),
                                 ],
                               ),
@@ -112,32 +118,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'Display',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.black54,
+                                color: Colors.grey,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             const SizedBox(height: 10),
                             _buildSettingsCard(
+                              color: cardColor,
+                              borderColor: Colors.grey.withOpacity(0.2),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Dark mode',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.black87,
+                                      color: textColor,
                                     ),
                                   ),
-                                  Switch(
-                                    value: _darkMode,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _darkMode = val;
-                                      });
+                                  // Bind to Global Notifier
+                                  ValueListenableBuilder<bool>(
+                                    valueListenable: isDarkMode,
+                                    builder: (context, isDark, child) {
+                                      return Switch(
+                                        value: isDark,
+                                        onChanged: (val) {
+                                           isDarkMode.value = val; // Update Global State
+                                        },
+                                        activeThumbColor: Colors.white,
+                                        activeTrackColor: backgroundColor,
+                                      );
                                     },
-                                    activeThumbColor: Colors.white,
-                                    activeTrackColor: headerBlue,
                                   ),
                                 ],
                               ),
@@ -149,23 +161,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               'About',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.black54,
+                                color: Colors.grey,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             const SizedBox(height: 10),
                             _buildSettingsCard(
+                              color: cardColor,
+                              borderColor: Colors.grey.withOpacity(0.2),
                               child: Column(
                                 children: [
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Text(
+                                      Text(
                                         'Version',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w500,
-                                          color: Colors.black87,
+                                          color: textColor,
                                         ),
                                       ),
                                       Text(
@@ -180,20 +194,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   const Divider(height: 30),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: const [
+                                    children: [
                                       Text(
                                         'Privacy Policy',
                                         style: TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w500,
-                                          color: Colors.black87,
+                                          color: textColor,
                                         ),
                                       ),
                                       Text(
                                         'View',
                                         style: TextStyle(
                                           fontSize: 16,
-                                          color: Color(0xFFADD8E6), // Light blue
+                                          color: backgroundColor, // Light blue
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
@@ -210,10 +224,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // Bottom Navigation Bar
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: containerColor,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: Colors.black.withOpacity(0.05),
                             blurRadius: 10,
                             offset: const Offset(0, -2),
                           ),
@@ -265,13 +279,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // Helper for settings cards (white box with border/shadow)
-  Widget _buildSettingsCard({required Widget child}) {
+  Widget _buildSettingsCard({required Widget child, required Color color, required Color borderColor}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: color,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: borderColor),
         // Simple border for cleaner look, similar to design
       ),
       child: child,
@@ -299,6 +313,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required int index,
   }) {
     final isSelected = index == 2; // 2 is Settings tab
+    
+    // Use theme colors
+    final selectedColor = const Color(0xFF87CEEB);
+    final unselectedColor = Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : const Color(0xFF999999);
+
     return GestureDetector(
       onTap: () => _navigateToTab(index),
       child: Container(
@@ -308,7 +327,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF87CEEB) : const Color(0xFF999999),
+              color: isSelected ? selectedColor : unselectedColor,
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -316,7 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? const Color(0xFF87CEEB) : const Color(0xFF999999),
+                color: isSelected ? selectedColor : unselectedColor,
                 fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
               ),
             ),

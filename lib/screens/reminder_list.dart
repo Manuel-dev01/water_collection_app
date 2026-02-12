@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../services/database_service.dart';
+import '../models/schedule_model.dart';
+import '../services/notification_service.dart';
 
 class ReminderListScreen extends StatefulWidget {
   const ReminderListScreen({super.key});
@@ -14,41 +17,67 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  // Dummy Data for Schedules
-  final List<Map<String, dynamic>> _schedules = [
-    {
-      'title': 'Weekly Collection',
-      'days': 'Mon, Wed, Fri',
-      'time': '09:00',
-      'isActive': true,
-      'status': 'Active', // Badge text
-    },
-    {
-      'title': 'Weekend Schedule',
-      'days': 'Sat, Sun',
-      'time': '10:00',
-      'isActive': true,
-      'status': 'Active', // Badge text
-    },
-  ];
+  // Real Data
+  List<Schedule> _schedules = [];
+  bool _isLoading = true;
 
-  // Dummy method to simulate events/dots on the calendar
-  List<dynamic> _getEventsForDay(DateTime day) {
-    // Just return a dummy event for every 3rd day to mimic the dots pattern
-    if (day.day % 3 == 0 || day.day % 4 == 0) {
-      return ['Event'];
+  @override
+  void initState() {
+    super.initState();
+    _refreshSchedules();
+  }
+
+  Future<void> _refreshSchedules() async {
+    setState(() => _isLoading = true);
+    final data = await DatabaseService.instance.getAllSchedules();
+    if (mounted) {
+      setState(() {
+        _schedules = data;
+        _isLoading = false;
+      });
     }
-    return [];
+  }
+
+  // Real event loader based on saved schedules
+  List<dynamic> _getEventsForDay(DateTime day) {
+    // 1 (Mon) -> 7 (Sun)
+    final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final String dayName = weekDays[day.weekday - 1];
+
+    // Find active schedules that include this day
+    return _schedules.where((s) {
+      return s.isActive == 1 && s.selectedDays.contains(dayName);
+    }).toList();
+  }
+
+  Future<void> _toggleScheduleActive(Schedule schedule, bool newValue) async {
+    try {
+      await DatabaseService.instance.toggleScheduleActive(schedule.id!, newValue);
+      
+      // Handle Notifications Logic (Simplified for now - strictly enable/disable)
+      // Ideally we'd reschedule properly, but here we trigger a full data refresh
+      // which is cleaner for the UI state.
+      
+      // Update local state optmistically or refresh
+      _refreshSchedules();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating schedule: $e')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Custom blue color from the design (approximate)
-    const Color headerBlue = Color(0xFFADD8E6); // Light Blue
-    const Color activeSwitchColor = Color(0xFFADD8E6);
+    // Theme Colors
+    final backgroundColor = Theme.of(context).appBarTheme.backgroundColor ?? const Color(0xFFADD8E6);
+    final containerColor = Theme.of(context).scaffoldBackgroundColor;
+    final textColor = Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black;
+    final cardColor = Theme.of(context).cardColor;
+    final primaryColor = Theme.of(context).primaryColor;
 
     return Scaffold(
-      backgroundColor: headerBlue, // Background for the top part
+      backgroundColor: backgroundColor, 
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -60,15 +89,14 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Reminder List',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: Theme.of(context).appBarTheme.foregroundColor ?? Colors.white,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  // Placeholder for potentially menu icon or profile
                   Container(), 
                 ],
               ),
@@ -77,9 +105,9 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
             // 2. White Container with Calendar and List
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: containerColor,
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(20),
                     topRight: Radius.circular(20),
                   ),
@@ -87,11 +115,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                 child: Column(
                   children: [
                     // Calendar Section
-                    _buildCalendar(),
+                    _buildCalendar(textColor),
 
                     // "All Schedules" Title
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -99,7 +127,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: textColor,
                           ),
                         ),
                       ),
@@ -107,14 +135,18 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
 
                     // Schedule List
                     Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        itemCount: _schedules.length,
-                        itemBuilder: (context, index) {
-                          final schedule = _schedules[index];
-                          return _buildScheduleItem(schedule, activeSwitchColor);
-                        },
-                      ),
+                      child: _isLoading 
+                        ? const Center(child: CircularProgressIndicator())
+                        : _schedules.isEmpty
+                            ? Center(child: Text('No schedules yet. Add one!', style: TextStyle(color: textColor)))
+                            : ListView.builder(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                itemCount: _schedules.length,
+                                itemBuilder: (context, index) {
+                                  final schedule = _schedules[index];
+                                  return _buildScheduleItem(schedule, backgroundColor, cardColor, textColor);
+                                },
+                              ),
                     ),
                   ],
                 ),
@@ -124,10 +156,10 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
             // 3. Bottom Navigation Bar
              Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: containerColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05), // Using withValues if available, else withOpacity
+                    color: Colors.black.withOpacity(0.05),
                     blurRadius: 10,
                     offset: const Offset(0, -2),
                   ),
@@ -163,7 +195,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
   }
 
   // Helper method to build the Calendar
-  Widget _buildCalendar() {
+  Widget _buildCalendar(Color textColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10.0),
       child: TableCalendar(
@@ -171,7 +203,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
         lastDay: DateTime.utc(2030, 3, 14),
         focusedDay: _focusedDay,
         calendarFormat: _calendarFormat,
-        eventLoader: _getEventsForDay, // Adding the event loader
+        eventLoader: _getEventsForDay, 
         selectedDayPredicate: (day) {
           return isSameDay(_selectedDay, day);
         },
@@ -186,26 +218,30 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
         onPageChanged: (focusedDay) {
           _focusedDay = focusedDay;
         },
-        // Styling matches the design loosely
-        headerStyle: const HeaderStyle(
+        headerStyle: HeaderStyle(
           formatButtonVisible: false,
           titleCentered: true,
           titleTextStyle: TextStyle(
             fontSize: 18, 
-            fontWeight: FontWeight.bold
+            fontWeight: FontWeight.bold,
+            color: textColor,
           ),
+          leftChevronIcon: Icon(Icons.chevron_left, color: textColor),
+          rightChevronIcon: Icon(Icons.chevron_right, color: textColor),
         ),
-        calendarStyle: const CalendarStyle(
-           todayDecoration: BoxDecoration(
-             color: Color(0xFFADD8E6), // Highlight color
+        calendarStyle: CalendarStyle(
+           defaultTextStyle: TextStyle(color: textColor),
+           weekendTextStyle: TextStyle(color: textColor),
+           todayDecoration: const BoxDecoration(
+             color: Color(0xFFADD8E6), 
              shape: BoxShape.circle,
            ),
-           selectedDecoration: BoxDecoration(
-             color: Colors.blue, // Ensure this constant is valid
+           selectedDecoration: const BoxDecoration(
+             color: Colors.blue, 
              shape: BoxShape.circle,
            ),
-           markerDecoration: BoxDecoration(
-             color: Color(0xFFADD8E6), // Color for the dots
+           markerDecoration: const BoxDecoration(
+             color: Color(0xFFADD8E6), 
              shape: BoxShape.circle,
            ),
         ),
@@ -214,14 +250,22 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
   }
 
   // Helper method to build each Schedule Item
-  Widget _buildScheduleItem(Map<String, dynamic> schedule, Color switchActiveColor) {
+  Widget _buildScheduleItem(Schedule schedule, Color switchColor, Color cardColor, Color textColor) {
+    bool isActive = schedule.isActive == 1;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        // Optional: add shadow if needed
+        boxShadow: [
+           BoxShadow(
+             color: Colors.grey.withOpacity(0.1),
+             blurRadius: 4,
+             offset: const Offset(0, 2),
+           )
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,24 +275,26 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                schedule['title'],
-                style: const TextStyle(
+                schedule.title,
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black, // Dark text
+                  color: textColor,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFADD8E6).withValues(alpha: 0.5), // Light blue bg
+                  color: isActive 
+                      ? const Color(0xFFADD8E6).withOpacity(0.5) 
+                      : Colors.grey.withOpacity(0.2), 
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  schedule['status'] ?? 'Active',
-                  style: const TextStyle(
+                  isActive ? 'Active' : 'Inactive',
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Colors.black54,
+                    color: isActive ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black54) : Colors.grey,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -259,20 +305,20 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
 
           // Days
           Text(
-            schedule['days'],
-            style: const TextStyle(
+            schedule.selectedDays,
+            style: TextStyle(
               fontSize: 14,
-              color: Colors.black54,
+              color: textColor.withOpacity(0.7),
             ),
           ),
           const SizedBox(height: 8),
 
           // Reminders Label
-          const Text(
+          Text(
             'Reminders:',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.black54,
+              color: textColor.withOpacity(0.7),
             ),
           ),
           const SizedBox(height: 4),
@@ -283,14 +329,14 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.notifications_none, size: 20, color: Colors.black54),
+                  Icon(Icons.notifications_none, size: 20, color: textColor.withOpacity(0.7)),
                   const SizedBox(width: 4),
                   Text(
-                    schedule['time'],
-                    style: const TextStyle(
+                    schedule.reminderTimes.join(', '), // Show all times
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black87,
+                      color: textColor,
                     ),
                   ),
                 ],
@@ -298,14 +344,12 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               
               // Custom Switch
               Switch(
-                value: schedule['isActive'],
+                value: isActive,
                 onChanged: (val) {
-                  setState(() {
-                    schedule['isActive'] = val;
-                  });
+                  _toggleScheduleActive(schedule, val);
                 },
                 activeThumbColor: Colors.white,
-                activeTrackColor: const Color(0xFFADD8E6), // Light blue
+                activeTrackColor: switchColor, // Light blue or Theme primary
               ),
             ],
           ),
@@ -335,6 +379,11 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
     required int index,
   }) {
     final isSelected = index == 1; // 1 is Reminders tab
+    
+    // Use theme colors
+    final selectedColor = const Color(0xFF87CEEB);
+    final unselectedColor = Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : const Color(0xFF999999);
+
     return GestureDetector(
       onTap: () => _navigateToTab(index),
       child: Container(
@@ -344,7 +393,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF87CEEB) : const Color(0xFF999999),
+              color: isSelected ? selectedColor : unselectedColor,
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -352,7 +401,7 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? const Color(0xFF87CEEB) : const Color(0xFF999999),
+                color: isSelected ? selectedColor : unselectedColor,
                 fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
               ),
             ),

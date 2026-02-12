@@ -22,24 +22,51 @@ void main() async {
 }
 
 
+// Global state for Dark Mode (Simple State Management)
+final ValueNotifier<bool> isDarkMode = ValueNotifier<bool>(false);
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Water Collection App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
-      // Define the "Map" of your app here
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashScreen(), // Ebun's start page
-        '/home': (context) => const ReminderListScreen(), // Taiwo's main page
-        '/setup': (context) => const ScheduleSetupScreen(), // Ebun's add page
-        '/settings': (context) => const SettingsScreen(), // Taiwo's settings
+    return ValueListenableBuilder<bool>(
+      valueListenable: isDarkMode,
+      builder: (context, isDark, child) {
+        return MaterialApp(
+          title: 'Water Collection App',
+          themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+          // Define Light Theme
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+            useMaterial3: true,
+            brightness: Brightness.light,
+            scaffoldBackgroundColor: Colors.white,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFFADD8E6), // Light Blue
+              foregroundColor: Colors.white,
+            ),
+          ),
+          // Define Dark Theme
+          darkTheme: ThemeData(
+            primarySwatch: Colors.blue,
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            scaffoldBackgroundColor: const Color(0xFF121212), // Dark Background
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF1F1F1F), // Darker Header
+              foregroundColor: Colors.white,
+            ),
+          ),
+          // Define the "Map" of your app here
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const SplashScreen(), // Ebun's start page
+            '/home': (context) => const ReminderListScreen(), // Taiwo's main page
+            '/setup': (context) => const ScheduleSetupScreen(), // Ebun's add page
+            '/settings': (context) => const SettingsScreen(), // Taiwo's settings
+          },
+        );
       },
     );
   }

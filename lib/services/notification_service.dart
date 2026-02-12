@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter/material.dart'; // Required for TimeOfDay
 
 /// ROLE: High-priority hardware alarms.
 /// This handles the actual 'Reminders' by talking to the phone's OS.
@@ -19,11 +20,10 @@ class NotificationService {
     await _notifications.initialize(const InitializationSettings(android: android));
   }
 
-  /// ROLE: Schedules an alarm for a specific reminder.
-  /// One notification per reminder_time as per architecture rules.
+  /// ROLE: Schedules a single alarm.
   Future<void> scheduleAlarm(int reminderId, String title, DateTime scheduledTime) async {
     await _notifications.zonedSchedule(
-      reminderId, // ID MUST map clearly to reminder ID
+      reminderId,
       'Water Collection Reminder',
       'Time to collect for: $title',
       tz.TZDateTime.from(scheduledTime, tz.local),
@@ -40,7 +40,49 @@ class NotificationService {
     );
   }
 
-  /// ROLE: Cancels a specific alarm if the user deletes a reminder.
+  /// ROLE: Schedules a weekly recurring notification for a specific day and time.
+  /// [day] is 1=Monday, 7=Sunday (standard Dart/ISO).
+  Future<void> scheduleWeeklyAlarm(int reminderId, String title, TimeOfDay time, int day) async {
+    final now = tz.TZDateTime.now(tz.local);
+    
+    // Calculate the next occurrence of this day/time
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local, 
+      now.year, 
+      now.month, 
+      now.day, 
+      time.hour, 
+      time.minute
+    );
+
+    // Initial check: if today is the day but time passed, or if day is different
+    while (scheduledDate.weekday != day || scheduledDate.isBefore(now)) {
+       // Add 1 day until we hit the correct weekday. 
+       // If it's today but passed, loop will run 7 times? No.
+       // We can optimize, but loop is safe and simple for finding "Next Day X".
+       scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    
+    await _notifications.zonedSchedule(
+      reminderId,
+      'Water Collection Reminder',
+      'Time to collect: $title',
+      scheduledDate,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'water_reminder_channel_recurring',
+          'Weekly Water Reminders',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime, // KEY: Repeats weekly
+    );
+  }
+
+  /// ROLE: Cancels a specific alarm.
   Future<void> cancelAlarm(int reminderId) async {
     await _notifications.cancel(reminderId);
   }
