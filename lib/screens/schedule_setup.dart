@@ -19,10 +19,10 @@ class _ScheduleSetupScreenState extends State<ScheduleSetupScreen> {
   final List<String> _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   final List<String> _fullDayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  final TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
   // List to store multiple reminder times
-  List<TimeOfDay> _selectedTimes = [const TimeOfDay(hour: 9, minute: 0)];
-  int _currentTab = 0;
+  final List<TimeOfDay> _selectedTimes = [const TimeOfDay(hour: 9, minute: 0)];
+  final int _currentTab = 0;
 
   @override
   void dispose() {

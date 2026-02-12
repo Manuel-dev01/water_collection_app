@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../services/database_service.dart';
 import '../models/schedule_model.dart';
-import '../services/notification_service.dart';
 
 class ReminderListScreen extends StatefulWidget {
   const ReminderListScreen({super.key});

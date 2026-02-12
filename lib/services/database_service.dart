@@ -1,7 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/schedule_model.dart';
-import '../models/reminder_model.dart'; // Ensure this import exists if we use Reminder class internally
+// Ensure this import exists if we use Reminder class internally
 
 /// ROLE: Backend Engine - Manages all SQLite persistent storage.
 /// DESIGN CHOICE: Singleton pattern used to ensure a single DB connection.
