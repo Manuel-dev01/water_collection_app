@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../services/database_service.dart';
 import '../models/schedule_model.dart';
+import '../services/notification_service.dart';
 
 class ReminderListScreen extends StatefulWidget {
   const ReminderListScreen({super.key});
@@ -63,6 +64,52 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating schedule: $e')),
       );
+    }
+  }
+
+  Future<void> _deleteSchedule(Schedule schedule) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Schedule?'),
+        content: Text('Are you sure you want to delete "${schedule.title}"? This will also cancel all its reminders.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        // 1. Cancel Notifications
+        await NotificationService.instance.cancelAllSchedulesForId(schedule.id!);
+        
+        // 2. Delete from DB
+        await DatabaseService.instance.deleteSchedule(schedule.id!);
+        
+        // 3. Refresh UI
+        _refreshSchedules();
+        
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Schedule deleted')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting schedule: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -281,22 +328,31 @@ class _ReminderListScreenState extends State<ReminderListScreen> {
                   color: textColor,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isActive 
-                      ? const Color(0xFFADD8E6).withOpacity(0.5) 
-                      : Colors.grey.withOpacity(0.2), 
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isActive ? 'Active' : 'Inactive',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isActive ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black54) : Colors.grey,
-                    fontWeight: FontWeight.w500,
+              Row(
+                children: [
+                   IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    onPressed: () => _deleteSchedule(schedule),
+                    tooltip: 'Delete Schedule',
                   ),
-                ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isActive 
+                          ? const Color(0xFFADD8E6).withOpacity(0.5) 
+                          : Colors.grey.withOpacity(0.2), 
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isActive ? 'Active' : 'Inactive',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isActive ? (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black54) : Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -86,4 +86,18 @@ class NotificationService {
   Future<void> cancelAlarm(int reminderId) async {
     await _notifications.cancel(reminderId);
   }
+
+  /// ROLE: Cancels all alarms associated with a schedule ID.
+  /// Strategy: We know the ID generation logic is (scheduleId * 1000) + ...
+  /// So we cancel a reasonable range of potential IDs.
+  Future<void> cancelAllSchedulesForId(int scheduleId) async {
+    // We assume max 50 reminders per schedule * 7 days = 350 IDs. 
+    // Range: scheduleId * 1000 to scheduleId * 1000 + 500 (safety margin)
+    int startId = scheduleId * 1000;
+    int endId = startId + 500;
+    
+    for (int i = startId; i < endId; i++) {
+        await _notifications.cancel(i);
+    }
+  }
 }
