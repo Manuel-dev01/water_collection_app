@@ -15,6 +15,7 @@ void main() async {
   // 2. Initialize your Notification Engine
   await NotificationService.instance.init();
 
+
   // 3. Wake up your Database Engine
   await DatabaseService.instance.database;
 

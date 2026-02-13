@@ -20,7 +20,7 @@ class NotificationService {
     
     // Get the device's local timezone
     try {
-      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (e) {
       // Fallback to UTC if something goes wrong to prevent crash
@@ -32,7 +32,12 @@ class NotificationService {
     final InitializationSettings initializationSettings = 
         InitializationSettings(android: android);
     
-    await _notifications.initialize(initializationSettings);
+    await _notifications.initialize(initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        debugPrint('Notification clicked: ${response.payload}');
+      },
+    );
+    debugPrint('NotificationService initialized');
   }
 
   /// ROLE: Requests notification permissions on Android 13+.
@@ -42,6 +47,7 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>();
 
     if (androidImplementation != null) {
+      await androidImplementation.requestExactAlarmsPermission();
       return await androidImplementation.requestNotificationsPermission();
     }
     return null;
@@ -56,10 +62,12 @@ class NotificationService {
       tz.TZDateTime.from(scheduledTime, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'water_reminder_channel',
-          'Water Reminders',
+          'water_reminder_channel_v2',
+          'Water Reminders V2',
           importance: Importance.max,
           priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -90,6 +98,8 @@ class NotificationService {
        scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
     
+    debugPrint('Scheduling weekly alarm: ID=$reminderId, Title=$title, Time=$scheduledDate');
+    
     await _notifications.zonedSchedule(
       reminderId,
       'Water Collection Reminder',
@@ -97,10 +107,12 @@ class NotificationService {
       scheduledDate,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'water_reminder_channel_recurring',
-          'Weekly Water Reminders',
+          'water_reminder_channel_recurring_v2',
+          'Weekly Water Reminders V2',
           importance: Importance.max,
           priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -126,5 +138,29 @@ class NotificationService {
     for (int i = startId; i < endId; i++) {
         await _notifications.cancel(i);
     }
+  }
+
+  /// ROLE: Diagnostic test to fire a notification in 5 seconds
+  Future<void> testNotification() async {
+    debugPrint('Diagnosing: Scheduling TEST notification for 5 seconds from now');
+    await _notifications.zonedSchedule(
+      99999,
+      'Test Notification',
+      'If you see this, notifications work!',
+      tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'water_reminder_channel_v2', // Use the confirmed channel
+          'Water Reminders V2',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+     debugPrint('Diagnosing: TEST notification scheduled');
   }
 }
