@@ -3,6 +3,8 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/material.dart'; // Required for TimeOfDay
 
+import 'package:flutter_timezone/flutter_timezone.dart';
+
 /// ROLE: High-priority hardware alarms.
 /// This handles the actual 'Reminders' by talking to the phone's OS.
 class NotificationService {
@@ -15,9 +17,34 @@ class NotificationService {
   Future<void> init() async {
     // Required to handle Daylight Savings and local time offsets correctly.
     tz.initializeTimeZones();
+    
+    // Get the device's local timezone
+    try {
+      final String timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    } catch (e) {
+      // Fallback to UTC if something goes wrong to prevent crash
+      tz.setLocalLocation(tz.getLocation('UTC'));
+      debugPrint('Error setting local timezone: $e');
+    }
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _notifications.initialize(const InitializationSettings(android: android));
+    final InitializationSettings initializationSettings = 
+        InitializationSettings(android: android);
+    
+    await _notifications.initialize(initializationSettings);
+  }
+
+  /// ROLE: Requests notification permissions on Android 13+.
+  Future<bool?> requestNotificationsPermission() async {
+    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+        _notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidImplementation != null) {
+      return await androidImplementation.requestNotificationsPermission();
+    }
+    return null;
   }
 
   /// ROLE: Schedules a single alarm.

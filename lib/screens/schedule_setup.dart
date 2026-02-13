@@ -25,6 +25,17 @@ class _ScheduleSetupScreenState extends State<ScheduleSetupScreen> {
   final int _currentTab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Request notification permissions when the screen loads
+    _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    await NotificationService.instance.requestNotificationsPermission();
+  }
+
+  @override
   void dispose() {
     _scheduleNameController.dispose();
     _notesController.dispose();
