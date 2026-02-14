@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 // Add these two lines to connect your backend logic
-import 'services/database_service.dart';
-import 'services/notification_service.dart';
 // Keep the screen imports provided by your teammate
 import 'screens/splash_screen.dart';
 import 'screens/schedule_setup.dart';
