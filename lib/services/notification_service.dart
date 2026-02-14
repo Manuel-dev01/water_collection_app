@@ -20,12 +20,17 @@ class NotificationService {
     
     // Get the device's local timezone
     try {
-      final String timeZoneName = (await FlutterTimezone.getLocalTimezone()).identifier;
+      // FIX: Add timeout because this can hang indefinitely offline on some devices
+      // We use 'dynamic' to handle version differences in flutter_timezone (String vs TimezoneInfo)
+      final dynamic result = await FlutterTimezone.getLocalTimezone()
+          .timeout(const Duration(seconds: 3));
+      
+      final String timeZoneName = (result is String) ? result : result.identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (e) {
       // Fallback to UTC if something goes wrong to prevent crash
       tz.setLocalLocation(tz.getLocation('UTC'));
-      debugPrint('Error setting local timezone: $e');
+      debugPrint('Error setting local timezone (Defaulting to UTC): $e');
     }
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -68,6 +73,8 @@ class NotificationService {
           priority: Priority.high,
           playSound: true,
           enableVibration: true,
+          ongoing: true,
+          autoCancel: false,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -78,27 +85,30 @@ class NotificationService {
   /// ROLE: Schedules a weekly recurring notification for a specific day and time.
   /// [day] is 1=Monday, 7=Sunday (standard Dart/ISO).
   Future<void> scheduleWeeklyAlarm(int reminderId, String title, TimeOfDay time, int day) async {
-    final now = tz.TZDateTime.now(tz.local);
+    // 1. Create a "Safe" Native DateTime (using device's real local time)
+    final nowNative = DateTime.now();
     
-    // Calculate the next occurrence of this day/time
-    tz.TZDateTime scheduledDate = tz.TZDateTime(
-      tz.local, 
-      now.year, 
-      now.month, 
-      now.day, 
-      time.hour, 
-      time.minute
+    // 2. Project the user's desired time onto Today's date
+    // This creates a DateTime that respects the DEVICE offset (e.g. UTC+1)
+    DateTime scheduledNative = DateTime(
+      nowNative.year,
+      nowNative.month,
+      nowNative.day,
+      time.hour,
+      time.minute,
     );
 
-    // Initial check: if today is the day but time passed, or if day is different
-    while (scheduledDate.weekday != day || scheduledDate.isBefore(now)) {
-       // Add 1 day until we hit the correct weekday. 
-       // If it's today but passed, loop will run 7 times? No.
-       // We can optimize, but loop is safe and simple for finding "Next Day X".
-       scheduledDate = scheduledDate.add(const Duration(days: 1));
+    // 3. Keep adding days until we hit the target day of the week
+    while (scheduledNative.weekday != day || scheduledNative.isBefore(nowNative)) {
+       scheduledNative = scheduledNative.add(const Duration(days: 1));
     }
+
+    // 4. Convert the final valid Native time to the Target Timezone (even if it's fell back to UTC)
+    // tz.TZDateTime.from() correctly handles the shift:
+    // e.g. 14:00 Native (UTC+1) -> 13:00 UTC (if tz.local is UTC)
+    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(scheduledNative, tz.local);
     
-    debugPrint('Scheduling weekly alarm: ID=$reminderId, Title=$title, Time=$scheduledDate');
+    debugPrint('Scheduling weekly alarm: ID=$reminderId, Title=$title, Native=$scheduledNative, TZ=$scheduledDate');
     
     await _notifications.zonedSchedule(
       reminderId,

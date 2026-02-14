@@ -8,16 +8,11 @@ import 'screens/schedule_setup.dart';
 import 'screens/reminder_list.dart';
 import 'screens/settings_screen.dart';
 
-void main() async {
+void main() {
   // 1. Required for native hardware communication
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 2. Initialize your Notification Engine
-  await NotificationService.instance.init();
-
-
-  // 3. Wake up your Database Engine
-  await DatabaseService.instance.database;
+  
+  // Initialization moved to SplashScreen to prevent black screen
 
   runApp(const MyApp());
 }

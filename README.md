@@ -22,7 +22,7 @@ A Flutter application designed to help users schedule and manage water collectio
     ```bash
     flutter pub get
     ```
-
+R
 ## How to Run the App
 
 1.  **Connect a Device**: Connect an Android device via USB or start an Android Emulator.

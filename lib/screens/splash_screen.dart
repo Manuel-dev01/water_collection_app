@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/database_service.dart';
+import '../services/notification_service.dart';
 //import 'dart:math' as math;
 
 class SplashScreen extends StatefulWidget {
@@ -13,6 +15,25 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+
+  Future<void> _initializeAndNavigate() async {
+    // Start minimum timer (so logo is visible for at least 3 seconds)
+    final minDelay = Future.delayed(const Duration(seconds: 3));
+
+    // Start initialization tasks in parallel
+    final initTasks = Future.wait([
+       NotificationService.instance.init(),
+       DatabaseService.instance.database,
+    ]);
+
+    // Wait for BOTH the timer and the initialization to finish
+    await Future.wait([minDelay, initTasks]);
+
+    // 2. Check if the widget is still in the tree before navigating
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/setup');
+    }
+  }
 
   @override
   void initState() {
@@ -37,17 +58,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
-    _navigateToHome(); // - automatic navigation
-  }
-
-  void _navigateToHome() async {
-    // 1. Wait for 2 or 3 seconds
-    await Future.delayed(const Duration(seconds: 3));
-
-    // 2. Check if the widget is still in the tree before navigating
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, '/setup');
-    }
+    _initializeAndNavigate(); // - automatic navigation with initialization
   }
 
   @override
