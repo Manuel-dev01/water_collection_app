@@ -58,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
-    _initializeAndNavigate(); // - automatic navigation with initialization
+    _initializeAndNavigate();
   }
 
   @override

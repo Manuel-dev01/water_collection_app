@@ -36,7 +36,10 @@ A Flutter application designed to help users schedule and manage water collectio
 
 ## How to Run the App
 
-1.  **Connect a Device**: Connect an Android device via USB or start an Android Emulator.
+1.  **Launch Emulator**:
+    ```bash
+    flutter emulators --launch Medium_Phone_API_36.1
+    ```
 2.  **Run the App**:
     ```bash
     flutter run
@@ -75,7 +78,9 @@ The project's source code is located in the `lib` folder and organized as follow
 
 ## Screenshots
 
-> | ![Home Screen](screenshots/schedule_real_screen.png) | ![Schedule Setup](screenshots/reminders_real_screen.png) | ![Settings](screenshots/settings_real_screen.png) |
+| Splash Screen | Home Screen | Schedule Setup | Settings |
+|:---:|:---:|:---:|:---:|
+| ![Splash Screen](screenshots/splash_real_screen.png) | ![Home Screen](screenshots/schedule_real_screen.png) | ![Schedule Setup](screenshots/reminders_real_screen.png) | ![Settings](screenshots/settings_real_screen.png) |
 
 ## Permissions
 

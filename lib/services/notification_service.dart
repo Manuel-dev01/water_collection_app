@@ -5,30 +5,33 @@ import 'package:flutter/material.dart'; // Required for TimeOfDay
 
 import 'package:flutter_timezone/flutter_timezone.dart';
 
-/// ROLE: High-priority hardware alarms.
-/// This handles the actual 'Reminders' by talking to the phone's OS.
+/// Service to handle local notifications and scheduling.
+/// Manages high-priority hardware alarms using flutter_local_notifications.
 class NotificationService {
   static final NotificationService instance = NotificationService._init();
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
 
   NotificationService._init();
 
-  /// ROLE: Initializes the notification engine and timezone data.
+  /// Initializes the notification engine and configures the local timezone.
   Future<void> init() async {
     // Required to handle Daylight Savings and local time offsets correctly.
     tz.initializeTimeZones();
     
     // Get the device's local timezone
     try {
-      // FIX: Add timeout because this can hang indefinitely offline on some devices
-      // We use 'dynamic' to handle version differences in flutter_timezone (String vs TimezoneInfo)
+      // We use a timeout because retrieving the timezone can hang indefinitely 
+      // on some devices when offline.
+      // We use 'dynamic' to handle potential version differences in flutter_timezone.
       final dynamic result = await FlutterTimezone.getLocalTimezone()
           .timeout(const Duration(seconds: 3));
       
       final String timeZoneName = (result is String) ? result : result.identifier;
       tz.setLocalLocation(tz.getLocation(timeZoneName));
     } catch (e) {
-      // Fallback to UTC if something goes wrong to prevent crash
+      // Fallback to UTC if timezone retrieval fails to prevent app crash.
+      // This ensures the app can still function, albeit with potentially offset notification times
+      // if not handled carefully during scheduling (handled in scheduleWeeklyAlarm).
       tz.setLocalLocation(tz.getLocation('UTC'));
       debugPrint('Error setting local timezone (Defaulting to UTC): $e');
     }
@@ -45,7 +48,7 @@ class NotificationService {
     debugPrint('NotificationService initialized');
   }
 
-  /// ROLE: Requests notification permissions on Android 13+.
+  /// Requests notification permissions for Android 13+.
   Future<bool?> requestNotificationsPermission() async {
     final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
         _notifications.resolvePlatformSpecificImplementation<
@@ -58,7 +61,7 @@ class NotificationService {
     return null;
   }
 
-  /// ROLE: Schedules a single alarm.
+  /// Schedules a single one-time alarm.
   Future<void> scheduleAlarm(int reminderId, String title, DateTime scheduledTime) async {
     await _notifications.zonedSchedule(
       reminderId,
@@ -82,14 +85,13 @@ class NotificationService {
     );
   }
 
-  /// ROLE: Schedules a weekly recurring notification for a specific day and time.
+  /// Schedules a weekly recurring notification for a specific day and time.
   /// [day] is 1=Monday, 7=Sunday (standard Dart/ISO).
   Future<void> scheduleWeeklyAlarm(int reminderId, String title, TimeOfDay time, int day) async {
-    // 1. Create a "Safe" Native DateTime (using device's real local time)
+    // 1. Create a "Safe" Native DateTime using the device's real local time.
     final nowNative = DateTime.now();
     
-    // 2. Project the user's desired time onto Today's date
-    // This creates a DateTime that respects the DEVICE offset (e.g. UTC+1)
+    // 2. Project the user's desired time onto Today's date.
     DateTime scheduledNative = DateTime(
       nowNative.year,
       nowNative.month,
@@ -98,14 +100,13 @@ class NotificationService {
       time.minute,
     );
 
-    // 3. Keep adding days until we hit the target day of the week
+    // 3. Keep adding days until we find the next occurrence of the target weekday.
     while (scheduledNative.weekday != day || scheduledNative.isBefore(nowNative)) {
        scheduledNative = scheduledNative.add(const Duration(days: 1));
     }
 
-    // 4. Convert the final valid Native time to the Target Timezone (even if it's fell back to UTC)
-    // tz.TZDateTime.from() correctly handles the shift:
-    // e.g. 14:00 Native (UTC+1) -> 13:00 UTC (if tz.local is UTC)
+    // 4. Convert the final valid Native time to the Target Timezone.
+    // tz.TZDateTime.from() handles the conversion correctly even if tz.local is UTC (offline fallback).
     final tz.TZDateTime scheduledDate = tz.TZDateTime.from(scheduledNative, tz.local);
     
     debugPrint('Scheduling weekly alarm: ID=$reminderId, Title=$title, Native=$scheduledNative, TZ=$scheduledDate');
@@ -127,21 +128,20 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime, // KEY: Repeats weekly
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime, // Repeats weekly
     );
   }
 
-  /// ROLE: Cancels a specific alarm.
+  /// Cancels a specific alarm by ID.
   Future<void> cancelAlarm(int reminderId) async {
     await _notifications.cancel(reminderId);
   }
 
-  /// ROLE: Cancels all alarms associated with a schedule ID.
-  /// Strategy: We know the ID generation logic is (scheduleId * 1000) + ...
-  /// So we cancel a reasonable range of potential IDs.
+  /// Cancels all alarms associated with a schedule ID.
+  /// Scans a reserved range of IDs based on the scheduleId (scheduleId * 1000).
   Future<void> cancelAllSchedulesForId(int scheduleId) async {
-    // We assume max 50 reminders per schedule * 7 days = 350 IDs. 
-    // Range: scheduleId * 1000 to scheduleId * 1000 + 500 (safety margin)
+    // We assume max 50 reminders per schedule * 7 days.
+    // Range: scheduleId * 1000 to scheduleId * 1000 + 500
     int startId = scheduleId * 1000;
     int endId = startId + 500;
     
@@ -150,7 +150,7 @@ class NotificationService {
     }
   }
 
-  /// ROLE: Diagnostic test to fire a notification in 5 seconds
+  /// Diagnostic test to fire a notification in 5 seconds.
   Future<void> testNotification() async {
     debugPrint('Diagnosing: Scheduling TEST notification for 5 seconds from now');
     await _notifications.zonedSchedule(
@@ -160,7 +160,7 @@ class NotificationService {
       tz.TZDateTime.now(tz.local).add(const Duration(seconds: 5)),
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'water_reminder_channel_v2', // Use the confirmed channel
+          'water_reminder_channel_v2',
           'Water Reminders V2',
           importance: Importance.max,
           priority: Priority.high,

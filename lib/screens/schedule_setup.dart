@@ -136,6 +136,9 @@ class _ScheduleSetupScreenState extends State<ScheduleSetupScreen> {
           if (_selectedDays[d]) {
             // Day index 0 is Monday (1), 6 is Sunday (7)
             int weekday = d + 1; 
+
+            // Generate a unique ID for each notification.
+            // Formula: ScheduleID * 1000 + TimeIndex * 10 + WeekdayIndex
             int notificationId = (scheduleId * 1000) + (t * 10) + weekday;
             
             await NotificationService.instance.scheduleWeeklyAlarm(
